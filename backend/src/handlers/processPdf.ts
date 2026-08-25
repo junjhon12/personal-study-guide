@@ -1,7 +1,8 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import type { Readable } from "node:stream"; 
 import type { S3Event, S3Handler } from "aws-lambda";
-import pdfParse from "pdf-parse"; 
+import pdfParse from "pdf-parse";
+import { generateStudyGuideWithDeepSeek } from "../services/deepseekService";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
 
@@ -16,6 +17,7 @@ export const handler: S3Handler = async (event: S3Event): Promise<void> => {
     const fileKey = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
     console.log(`Processing file: ${fileKey} from bucket: ${bucketName}`);
 
+    // 1. Fetch PDF from S3
     const getObjectCommand = new GetObjectCommand({
       Bucket: bucketName,
       Key: fileKey,
@@ -30,14 +32,16 @@ export const handler: S3Handler = async (event: S3Event): Promise<void> => {
     }
     const pdfBuffer = Buffer.concat(chunks);
 
-    // Call pdfParse directly as a function
+    // 2. Extract raw text from PDF
     const parsePdf = await pdfParse(pdfBuffer);
     const rawText = parsePdf.text;
-
     console.log(`Successfully extracted ${rawText.length} characters from PDF.`);
 
-    // Note: S3 event triggers do not return HTTP responses. 
-    // The process simply finishes or passes data to the next service (like your AI API or Database).
+    // 3. Step 4: Send extracted text to DeepSeek AI service
+    const studyGuide = await generateStudyGuideWithDeepSeek(rawText, fileKey);
+    console.log("Successfully generated study guide via DeepSeek:", studyGuide.title);
+
+    // 4. Next Step: Save studyGuide to Database (e.g., PostgreSQL or DynamoDB)
 
   } catch (error) {
     console.error("Error processing PDF in Lambda pipeline:", error);
