@@ -22,14 +22,14 @@ export interface ShortAnswerQuestion extends BaseQuestion {
   sampleAnswer: string;
 }
 
-// Seperate union for dynamic rendering
+// Separate union for dynamic rendering
 export type Question = MultipleChoiceQuestion | ShortAnswerQuestion;
 
-// Chapter/Section breakdown pf the study guide
+// Chapter/Section breakdown of the study guide
 export interface StudyGuideSection {
   chapterTitle: string;
   summary: string;
-  keyTerms: {term: string; definition: string}[];
+  keyTerms: { term: string; definition: string }[];
 }
 
 // Main study guide object
@@ -43,13 +43,13 @@ export interface StudyGuide {
 
 // API Request/Response types for tracking upload state
 export interface UploadResponse {
-  uploadURL : string;
+  uploadURL: string;
   fileKey: string;
 }
 
 // Response status
 export interface ProcessingStatusResponse {
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | "FAILED";
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   studyGuideId?: string;
   error?: string;
 }
