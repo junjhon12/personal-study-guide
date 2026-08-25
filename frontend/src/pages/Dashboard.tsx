@@ -1,5 +1,5 @@
 import React from "react";
-import UploadContent from "../components/UploadContent";
+import UploadZone from "../components/UploadContent"; 
 
 export default function Dashboard() {
   return (
@@ -11,13 +11,13 @@ export default function Dashboard() {
       </header>
 
       <main className="px-5 py-10 mx-auto max-w-7xl sm:px-10 lg:px-15">
-        {/* Uploading PDf Content Component*/}
+        {/* Uploading PDF Content Component*/}
         <div className="mb-10">
           <h2 className="mb-5 text-xl font-semibold text-gray-500">Upload Course Material</h2>
-            <UploadContent/>
+          <UploadZone />
         </div>
 
-        {/* Practice Component and readingpanes*/}
+        {/* Practice Component and reading panes */}
         <div className="p-5 bg-white border border-gray-300 rounded-xl">
           <h2 className="mb-5 text-lg font-semibold text-gray-500">Study Space</h2>
           <p className="text-gray-500">Upload PDF to generate summaries and practice questions</p>

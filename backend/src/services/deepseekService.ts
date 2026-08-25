@@ -1,7 +1,7 @@
-import OpenAi from "openai";
+import OpenAI from "openai"; 
 import type { StudyGuide } from "../types/studyGuide";
 
-const openai = new OpenAi({
+const openai = new OpenAI({
   baseURL: "https://api.deepseek.com",
   apiKey: process.env.DEEPSEEK_API_KEY,
 });
@@ -54,8 +54,8 @@ The JSON object must match this schema:
   const response = await openai.chat.completions.create({
     model: "deepseek-chat",
     messages: [
-      {role: "system", content: systemPrompt},
-      { role: "user", content: userPrompt }, 
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ],
     response_format: { type: "json_object" },
     temperature: 0.3,
@@ -64,7 +64,8 @@ The JSON object must match this schema:
   const content = response.choices[0]?.message.content;
 
   if (!content) {
-    throw new Error("Failed to recieve output from DeepSeek AI.")
+    // Fixed typo: "recieve" -> "receive"
+    throw new Error("Failed to receive output from DeepSeek AI."); 
   }
 
   return JSON.parse(content) as StudyGuide;
