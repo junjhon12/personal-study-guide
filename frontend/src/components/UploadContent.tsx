@@ -69,6 +69,31 @@ export default function UploadZone() {
     }
   };
 
+  const pollProcessingStatus = async (fileKey: string) => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/dev';
+  
+  const checkStatus = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/status/${encodeURIComponent(fileKey)}`);
+      const data = await response.json();
+
+      if (data.status === 'COMPLETED') {
+        setUploadStatus('completed');
+        // TODO: Redirect to the study space or fetch the generated questions
+      } else if (data.status === 'FAILED') {
+        setUploadStatus('error');
+        setErrorMessage('AI processing failed. Please try again.');
+      } else {
+        // Still processing, poll again in 3 seconds
+        setTimeout(checkStatus, 3000); 
+      }
+    } catch (error) {
+      console.error("Polling error:", error);
+    }
+  };
+
+  checkStatus();
+};
   return (
     <div 
       className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${

@@ -41,9 +41,26 @@ export const handler: S3Handler = async (event: S3Event): Promise<void> => {
     const studyGuide = await generateStudyGuideWithDeepSeek(rawText, fileKey);
     console.log("Successfully generated study guide via DeepSeek:", studyGuide.title);
 
-    // 4. Next Step: Save studyGuide to Database (e.g., PostgreSQL or DynamoDB)
+    // 4. Save to PostgreSQL
+    const insertQuery = `
+      INSERT INTO study_guides (id, file_key, title, status, data)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (id) DO NOTHING
+    `;
+    
+    const values = [
+      studyGuide.id,
+      fileKey,
+      studyGuide.title,
+      "COMPLETED", // Maps to your ProcessingStatusResponse[cite: 11]
+      JSON.stringify(studyGuide) // Saved natively as JSONB in Postgres
+    ];
+
+    await pool.query(insertQuery, values);
+    console.log(`Successfully saved study guide ${studyGuide.id} to database.`);
 
   } catch (error) {
+    // If an error occurs, we should ideally log a 'FAILED' status to the DB here so the frontend knows to stop polling
     console.error("Error processing PDF in Lambda pipeline:", error);
     throw error;
   }
