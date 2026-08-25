@@ -1,0 +1,54 @@
+service: study-guide-backend
+
+frameworkVersion: ">=3.0.0"
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    DEEPSEEK_API_KEY: ${env:DEEPSEEK_API_KEY}
+    UPLOAD_BUCKET_NAME: study-guide-pdfs-${self:provider.stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+          Resource: "arn:aws:s3:::study-guide-pdfs-${self:provider.stage}/*"
+
+functions:
+  generateUploadUrl:
+    handler: src/handlers/generateUploadUrl.handler
+    events:
+      - http:
+          path: upload-url
+          method: post
+          cors: true
+
+  processPdf:
+    handler: src/handlers/processPdf.handler
+    events:
+      - s3:
+          bucket: study-guide-pdfs-${self:provider.stage}
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .pdf
+
+resources:
+  Resources:
+    S3BucketStudyguidepdfsdev:
+      Type: AWS::S3::Bucket
+      Properties:
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - PUT
+                - POST
+                - GET
+              AllowedOrigins:
+                - '*'
