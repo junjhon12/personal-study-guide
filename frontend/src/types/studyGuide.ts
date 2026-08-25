@@ -52,4 +52,4 @@ export interface ProcessingStatusResponse {
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   studyGuideId?: string;
   error?: string;
-}
+}  
