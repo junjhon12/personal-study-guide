@@ -1,15 +1,19 @@
-service: study-guide-backend
-
-frameworkVersion: ">=3.0.0"
+service: personal-study-guide-backend
+frameworkVersion: '4'
+useDotenv: true
 
 provider:
   name: aws
   runtime: nodejs20.x
   region: us-east-1
-  stage: ${opt:stage, 'dev'}
+  # Global CORS configuration for httpApi
+  httpApi:
+    cors: true
   environment:
+    UPLOAD_BUCKET_NAME: ${self:custom.bucketName}
+    SUPABASE_URL: ${env:SUPABASE_URL}
+    SUPABASE_KEY: ${env:SUPABASE_KEY}
     DEEPSEEK_API_KEY: ${env:DEEPSEEK_API_KEY}
-    UPLOAD_BUCKET_NAME: study-guide-pdfs-${self:provider.stage}
   iam:
     role:
       statements:
@@ -17,38 +21,36 @@ provider:
           Action:
             - s3:GetObject
             - s3:PutObject
-          Resource: "arn:aws:s3:::study-guide-pdfs-${self:provider.stage}/*"
+          Resource: "arn:aws:s3:::${self:custom.bucketName}/*"
+
+custom:
+  bucketName: study-guide-uploads-${sls:stage}
+
+# This is required to expose the "offline" command
+plugins:
+  - serverless-offline
 
 functions:
-  generateUploadUrl:
-    handler: src/handlers/generateUploadUrl.handler
+  getUploadUrl:
+    handler: src/handlers/getUploadUrl.handler
     events:
-      - http:
-          path: upload-url
+      - httpApi:
+          path: /upload-url
           method: post
-          cors: true
-
-  processPdf:
+  
+  processPdfEvent:
     handler: src/handlers/processPdf.handler
     events:
       - s3:
-          bucket: study-guide-pdfs-${self:provider.stage}
-          event: s3:ObjectCreated:*
+          bucket: ${self:custom.bucketName}
+          event: s3:ObjectCreated:Put
           rules:
             - suffix: .pdf
+          existing: true
 
-resources:
-  Resources:
-    S3BucketStudyguidepdfsdev:
-      Type: AWS::S3::Bucket
-      Properties:
-        CorsConfiguration:
-          CorsRules:
-            - AllowedHeaders:
-                - '*'
-              AllowedMethods:
-                - PUT
-                - POST
-                - GET
-              AllowedOrigins:
-                - '*'
+  getStudyGuide:
+    handler: src/handlers/getStudyGuide.handler
+    events:
+      - httpApi:
+          path: /study-guide/{fileKey}
+          method: get

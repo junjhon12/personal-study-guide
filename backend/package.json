@@ -17,6 +17,7 @@
     "@types/pg": "^8.23.1",
     "@types/uuid": "^10.0.0",
     "serverless": "^4.41.0",
+    "serverless-offline": "^14.8.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {

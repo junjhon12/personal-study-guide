@@ -1,6 +1,11 @@
 import React, { useState, useCallback } from 'react';
 
-export default function UploadZone() {
+// Defines the expected props so the dashboard can react to upload completion
+interface UploadZoneProps {
+  onUploadComplete: (fileKey: string) => void;
+}
+
+export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'error' | 'completed'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -16,11 +21,19 @@ export default function UploadZone() {
       setUploadStatus('uploading');
       setErrorMessage(null);
 
-      // Fetch the S3 Presigned URL from the backend API Gateway
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/dev';
-      const response = await fetch(`${apiUrl}/upload-url`, { method: 'POST' });
+     // Retrieve the base API URL and construct the final endpoint path
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const endpoint = `${apiUrl}/upload-url`;
+      
+      // Log the exact URL to the browser console to verify the routing path
+      console.log('Attempting to fetch presigned URL from:', endpoint);
 
-      if (!response.ok) throw new Error('Failed to fetch presigned URL.');
+      const response = await fetch(endpoint, { method: 'POST' });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Backend returned status: ${response.status}`);
+      }
       
       const { uploadUrl, fileKey } = await response.json();
 
@@ -40,7 +53,7 @@ export default function UploadZone() {
       console.error(error);
       setUploadStatus('error');
       
-      // Type narrowing to safely extract the error message
+      // Safely extract the error message using type narrowing
       const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
       setErrorMessage(message);
     }
@@ -59,6 +72,8 @@ export default function UploadZone() {
   const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
+    
+    // Efficiently verify file existence before processing
     if (e.dataTransfer.files?.length) {
       handleFileUpload(e.dataTransfer.files[0]);
     }
@@ -73,7 +88,7 @@ export default function UploadZone() {
   const pollProcessingStatus = async (fileKey: string) => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/dev';
     
-    // Recursive polling function to check background worker status
+    // Recursive polling function to monitor background AI worker status
     const checkStatus = async () => {
       try {
         const response = await fetch(`${apiUrl}/status/${encodeURIComponent(fileKey)}`);
@@ -81,7 +96,7 @@ export default function UploadZone() {
 
         if (data.status === 'COMPLETED') {
           setUploadStatus('completed');
-          // TODO: Redirect to the study space or fetch the generated questions
+          onUploadComplete(fileKey);
         } else if (data.status === 'FAILED') {
           setUploadStatus('error');
           setErrorMessage('AI processing failed. Please try again.');
