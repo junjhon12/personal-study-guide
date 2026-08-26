@@ -3,6 +3,7 @@ import type { Readable } from "node:stream";
 import type { S3Event, S3Handler } from "aws-lambda";
 import pdfParse from "pdf-parse";
 import { generateStudyGuideWithDeepSeek } from "../services/deepseekService";
+import { supabase } from "../utils/supabase";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
 
@@ -41,26 +42,24 @@ export const handler: S3Handler = async (event: S3Event): Promise<void> => {
     const studyGuide = await generateStudyGuideWithDeepSeek(rawText, fileKey);
     console.log("Successfully generated study guide via DeepSeek:", studyGuide.title);
 
-    // 4. Save to PostgreSQL
-    const insertQuery = `
-      INSERT INTO study_guides (id, file_key, title, status, data)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (id) DO NOTHING
-    `;
-    
-    const values = [
-      studyGuide.id,
-      fileKey,
-      studyGuide.title,
-      "COMPLETED", // Maps to your ProcessingStatusResponse[cite: 11]
-      JSON.stringify(studyGuide) // Saved natively as JSONB in Postgres
-    ];
+    // 4. Save to Supabase PostgreSQL
+    const { error: dbError } = await supabase
+      .from("study_guides")
+      .upsert({
+        id: studyGuide.id,
+        file_key: fileKey,
+        title: studyGuide.title,
+        status: "COMPLETED",
+        data: studyGuide
+      });
 
-    await pool.query(insertQuery, values);
-    console.log(`Successfully saved study guide ${studyGuide.id} to database.`);
+    if (dbError) {
+      throw new Error(`Supabase Insert Error: ${dbError.message}`);
+    }
+
+    console.log(`Successfully saved study guide ${studyGuide.id} to Supabase.`);
 
   } catch (error) {
-    // If an error occurs, we should ideally log a 'FAILED' status to the DB here so the frontend knows to stop polling
     console.error("Error processing PDF in Lambda pipeline:", error);
     throw error;
   }

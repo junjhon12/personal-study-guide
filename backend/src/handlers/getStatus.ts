@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { pool } from "../utils/db";
+import { supabase } from "../utils/supabase";
 import type { ProcessingStatusResponse } from "../types/studyGuide";
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -14,20 +14,24 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Query the database for the file processing status
-    const query = "SELECT id, status FROM study_guides WHERE file_key = $1";
-    const result = await pool.query(query, [decodeURIComponent(fileKey)]);
+    const decodedKey = decodeURIComponent(fileKey);
+
+    // Query Supabase using the SDK
+    const { data, error } = await supabase
+      .from("study_guides")
+      .select("id, status")
+      .eq("file_key", decodedKey)
+      .single();
 
     let responsePayload: ProcessingStatusResponse;
 
-    if (result.rows.length === 0) {
-      // If the S3 processing Lambda hasn't finished inserting the record yet, it is still processing
+    if (error || !data) {
+      // If no record exists yet, the S3 event is still processing
       responsePayload = { status: "PROCESSING" };
     } else {
-      const row = result.rows[0];
       responsePayload = {
-        status: row?.status as ProcessingStatusResponse["status"],
-        studyGuideId: row?.id,
+        status: data.status as ProcessingStatusResponse["status"],
+        studyGuideId: data.id,
       };
     }
 
