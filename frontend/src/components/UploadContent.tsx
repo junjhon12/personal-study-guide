@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 
 export default function UploadZone() {
   const [isDragging, setIsDragging] = useState(false);
-  // Added 'completed' to the allowed state values
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'error' | 'completed'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -17,7 +16,7 @@ export default function UploadZone() {
       setUploadStatus('uploading');
       setErrorMessage(null);
 
-      // Request the Presigned URL from your backend API Gateway
+      // Fetch the S3 Presigned URL from the backend API Gateway
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/dev';
       const response = await fetch(`${apiUrl}/upload-url`, { method: 'POST' });
 
@@ -25,7 +24,7 @@ export default function UploadZone() {
       
       const { uploadUrl, fileKey } = await response.json();
 
-      // Upload the PDF directly to AWS S3
+      // Execute a direct PUT request to AWS S3 using the provided URL
       const s3Response = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/pdf' },
@@ -34,17 +33,16 @@ export default function UploadZone() {
 
       if (!s3Response.ok) throw new Error('Failed to upload file to S3.');
 
-      // File is in S3. The backend event trigger will now invoke DeepSeek.
       setUploadStatus('processing');
-      console.log('Upload successful. File Key:', fileKey);
-      
-      // Trigger the polling function to check when the AI is done
       pollProcessingStatus(fileKey);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
       setUploadStatus('error');
-      setErrorMessage(error.message || 'An unexpected error occurred.');
+      
+      // Type narrowing to safely extract the error message
+      const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      setErrorMessage(message);
     }
   };
 
@@ -61,24 +59,26 @@ export default function UploadZone() {
   const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    if (e.dataTransfer.files?.length) {
       handleFileUpload(e.dataTransfer.files[0]);
     }
   }, []);
 
   const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.length) {
       handleFileUpload(e.target.files[0]);
     }
   };
 
   const pollProcessingStatus = async (fileKey: string) => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/dev';
+    
+    // Recursive polling function to check background worker status
     const checkStatus = async () => {
       try {
         const response = await fetch(`${apiUrl}/status/${encodeURIComponent(fileKey)}`);
         const data = await response.json();
-        
+
         if (data.status === 'COMPLETED') {
           setUploadStatus('completed');
           // TODO: Redirect to the study space or fetch the generated questions
@@ -86,13 +86,13 @@ export default function UploadZone() {
           setUploadStatus('error');
           setErrorMessage('AI processing failed. Please try again.');
         } else {
-          // Still processing, poll again in 3 seconds
           setTimeout(checkStatus, 3000); 
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Polling error:", error);
       }
     };
+
     checkStatus();
   };
 
