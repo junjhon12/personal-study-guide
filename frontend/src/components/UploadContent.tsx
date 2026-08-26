@@ -2,7 +2,8 @@ import React, { useState, useCallback } from 'react';
 
 export default function UploadZone() {
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'error'>('idle');
+  // Added 'completed' to the allowed state values
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'error' | 'completed'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleFileUpload = async (file: File) => {
@@ -37,6 +38,8 @@ export default function UploadZone() {
       setUploadStatus('processing');
       console.log('Upload successful. File Key:', fileKey);
       
+      // Trigger the polling function to check when the AI is done
+      pollProcessingStatus(fileKey);
       
     } catch (error: any) {
       console.error(error);
@@ -70,30 +73,29 @@ export default function UploadZone() {
   };
 
   const pollProcessingStatus = async (fileKey: string) => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/dev';
-  
-  const checkStatus = async () => {
-    try {
-      const response = await fetch(`${apiUrl}/status/${encodeURIComponent(fileKey)}`);
-      const data = await response.json();
-
-      if (data.status === 'COMPLETED') {
-        setUploadStatus('completed');
-        // TODO: Redirect to the study space or fetch the generated questions
-      } else if (data.status === 'FAILED') {
-        setUploadStatus('error');
-        setErrorMessage('AI processing failed. Please try again.');
-      } else {
-        // Still processing, poll again in 3 seconds
-        setTimeout(checkStatus, 3000); 
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/dev';
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/status/${encodeURIComponent(fileKey)}`);
+        const data = await response.json();
+        
+        if (data.status === 'COMPLETED') {
+          setUploadStatus('completed');
+          // TODO: Redirect to the study space or fetch the generated questions
+        } else if (data.status === 'FAILED') {
+          setUploadStatus('error');
+          setErrorMessage('AI processing failed. Please try again.');
+        } else {
+          // Still processing, poll again in 3 seconds
+          setTimeout(checkStatus, 3000); 
+        }
+      } catch (error) {
+        console.error("Polling error:", error);
       }
-    } catch (error) {
-      console.error("Polling error:", error);
-    }
+    };
+    checkStatus();
   };
 
-  checkStatus();
-};
   return (
     <div 
       className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
@@ -121,6 +123,7 @@ export default function UploadZone() {
 
         {uploadStatus === 'uploading' && <p className="text-lg font-medium text-blue-600">Uploading securely to S3...</p>}
         {uploadStatus === 'processing' && <p className="text-lg font-medium text-purple-600">Upload complete! AI is generating your study guide...</p>}
+        {uploadStatus === 'completed' && <p className="text-lg font-medium text-green-600">Study guide generated successfully!</p>}
         {uploadStatus === 'error' && <p className="text-lg font-medium text-red-600">Error: {errorMessage}</p>}
       </div>
     </div>
